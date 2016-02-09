@@ -70,14 +70,14 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 {
 	Listener *listener	= (Listener*)arg;
 	Connection *con		= NULL;
-try
-{
-	con = new Connection();
-}
-catch(std::bad_alloc)
-{
-	std::cout << "Here listen" <<std::endl;
-}
+	try
+	{
+		con = new Connection();
+	}
+	catch(std::bad_alloc)
+	{
+		std::cout << "Here listen" <<std::endl;
+	}
 	socklen_t addr_len	= sizeof(con->con_addr);
 	//需要处理惊群
 	//这里不应该退出，不然尝试失败的程序就结束了
@@ -101,8 +101,7 @@ catch(std::bad_alloc)
 		Connection::FreeConnection(con);
 		return ;
 	}
-
 	con->con_worker->con_map[con->con_sockfd] = con;
-	++listener->cnt_connection;
+	++(listener->cnt_connection);
 
 }

@@ -9,7 +9,6 @@
 #include "master.h"
 #include "connection.h"
 
-#include <stdlib.h>
 #include <iostream>
 
 Worker::Worker(const std::string &ip, unsigned short port)
@@ -37,7 +36,7 @@ Worker::~Worker()
 		}
 		event_base_free(w_base);
 	}
-	std::cout << "Worker closed" << std::endl;
+	std::cout<< "----total connection: " << listener.cnt_connection << "----" << std::endl;
 }
 
 void Worker::Run()
@@ -53,6 +52,5 @@ void Worker::Run()
 
 void Worker::WorkerExitSignal(evutil_socket_t signo, short event, void *arg)
 {	
-	//std::cout << "Worker SIGINT" << std::endl;
 	event_base_loopexit((struct event_base*)arg, NULL);
 }

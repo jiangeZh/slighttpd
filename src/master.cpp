@@ -39,6 +39,8 @@ bool Master::StartMaster()
 {
 	std::cout << "Start Master" << std::endl;
 
+	worker.master = this;
+
 	if (!worker.listener.InitListener(&worker))
 	{
 		return false;
@@ -69,6 +71,7 @@ bool Master::StartMaster()
 	evsignal_add(m_chld_event, NULL);
 
 	event_base_dispatch(m_base);
+
 	return true;
 }
 
