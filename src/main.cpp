@@ -15,6 +15,5 @@ int main(int argc, char * argv[])
 	std::cout << "----Slighttpd	0.0.0.0	8000----" << std::endl;
 	if (!master.StartMaster())
 		return -1;
-	std::cout << "----Goodbye----" << std::endl;
 	return 0;
 }

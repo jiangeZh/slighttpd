@@ -21,7 +21,7 @@ if __name__ == "__main__":
         
     start_time = time.time()
 
-    for i in range(0, 10000):
+    for i in range(0, 1000):
         thread = threading.Thread(target = make_a_request)
         thread_list.append(thread)
         thread.start()

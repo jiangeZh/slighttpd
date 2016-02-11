@@ -11,7 +11,7 @@
 #include <map>
 #include <string>
 
-#include "http_parser.h" //see: third/http-parser
+#include "http_parser.h"
 
 class Connection;
 

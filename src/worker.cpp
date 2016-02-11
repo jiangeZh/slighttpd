@@ -21,6 +21,8 @@ Worker::Worker(const std::string &ip, unsigned short port)
 
 Worker::~Worker()
 {
+	//需要在释放con之前，否则con释放时可能插件还在使用con的数据
+	master->UnloadPlugins();
 	//Master不进入run()，故不对w_exit_event初始化
 	if (w_exit_event)
 		event_free(w_exit_event);
@@ -36,6 +38,8 @@ Worker::~Worker()
 		}
 		event_base_free(w_base);
 	}
+	//需要在释放con之后，此时con中插件的数据已经被清理掉
+	master->RemovePlugins();
 	std::cout<< "----total connection: " << listener.cnt_connection << "----" << std::endl;
 }
 

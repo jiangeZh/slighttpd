@@ -2,8 +2,8 @@ THIRD_LIBS=-levent
 LIBS=-ldl
 CFLAGS=-I./include -I./third/http-parser/
 
-master:src/master.o src/worker.o src/listener.o src/connection.o src/main.o src/http.o third/http-parser/libhttp.a
-		g++ -g -o $@ src/master.o src/worker.o src/listener.o src/connection.o src/main.o src/http.o third/http-parser/libhttp.a $(THIRD_LIBS) $(LIBS)
+master:src/master.o src/worker.o src/listener.o src/connection.o src/main.o src/http.o src/plugin.o third/http-parser/libhttp.a
+		g++ -g -o $@ src/master.o src/worker.o src/listener.o src/connection.o src/main.o src/http.o src/plugin.o third/http-parser/libhttp.a $(THIRD_LIBS) $(LIBS)
 
 third/http-parser/libhttp.a:third/http-parser/http_parser.o
 	ar -r $@ $<
@@ -27,6 +27,9 @@ src/main.o:src/main.cpp include/master.h
 		g++ -g -o $@ -c $< $(CFLAGS)
 
 src/http.o:src/http.cpp include/http.h third/http-parser/http_parser.h include/connection.h
+	g++ -o $@ -c $< $(CFLAGS)
+
+src/plugin.o:src/plugin.cpp include/plugin.h
 	g++ -o $@ -c $< $(CFLAGS)
 
 clean:

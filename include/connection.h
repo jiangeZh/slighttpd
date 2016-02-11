@@ -16,6 +16,7 @@
 
 #include "util.h"
 #include "http.h"
+#include "plugin.h"
 
 typedef enum
 {
@@ -70,6 +71,10 @@ class Connection
 		bool				con_keep_alive;
 		int 				con_req_cnt;
 
+		void*			   *plugin_data_slots;
+		int					plugin_cnt;
+		int                	plugin_next;
+
 	    HttpRequest		   *http_req_parser;  	//解析时用
 	    HttpRequest		   *http_req_parsed;   //处理请求时用
 	    HttpResponse		http_response;
@@ -88,6 +93,16 @@ class Connection
 		bool StateMachine();
     	void SetState(connection_state_t state);
     	request_state_t GetParsedRequest();
+
+		bool InitPluginDataSlots();
+    	void FreePluginDataSlots();
+
+    	bool PluginRequestStart();
+    	bool PluginRead();
+    	bool PluginRequestEnd();
+    	bool PluginResponseStart();
+    	plugin_state_t PluginWrite();
+    	bool PluginResponseEnd();
 
 		connection_state_t	con_state;
 		request_state_t		req_state;

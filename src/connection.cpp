@@ -7,6 +7,8 @@
 
 #include "connection.h"
 #include "worker.h"
+#include "plugin.h"
+#include "master.h"
 
 #include<iostream>
 
@@ -14,19 +16,24 @@ Connection::Connection()
 {
 	con_worker 				= NULL;
 	con_event	 			= NULL;
-    http_req_parsed  	= NULL;
-    http_req_parser  	= NULL;
 	con_keep_alive			= true;
 	con_req_cnt				= 0;
+    http_req_parsed  		= NULL;
+    http_req_parser  		= NULL;
+	plugin_data_slots		= NULL;
+	plugin_cnt				= 0;
 }
 
 Connection::~Connection()
 {
 	if (con_event)
 	{
+		FreePluginDataSlots();
+
 		event_free(con_event);
 		std::cout << con_sockfd << " closed" << std::endl;
 		close(con_sockfd);
+
 		HttpRequest *request;
 
         while (!req_queue.empty())
@@ -71,17 +78,22 @@ bool Connection::InitConnection(Worker *worker)
 		con_intmp.reserve(10 * 1024);
 		con_inbuf.reserve(10 * 1024);
 		con_outbuf.reserve(10 * 1024);
-
-    	http_parser.InitParser(this);
-
-		evutil_make_socket_nonblocking(con_sockfd);
-		con_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST, Connection::ConEventCallback, this);
 	}
 	catch(std::bad_alloc)
 	{
 		std::cout << "Here con" <<std::endl;
 	}
+
+    http_parser.InitParser(this);
+
+	evutil_make_socket_nonblocking(con_sockfd);
+	con_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST, Connection::ConEventCallback, this);
 	event_add(con_event, NULL);
+
+    if (!InitPluginDataSlots())
+    {
+        return false;
+    }
 
     SetState(CON_STATE_REQUEST_START);
 
@@ -125,7 +137,6 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 
     if (event & EV_WRITE)
     {
-		std::cout << con->con_outbuf <<std::endl;
         int ret = write(sockfd, con->con_outbuf.c_str(), con->con_outbuf.size());
         if (ret == -1)
         {
@@ -155,6 +166,7 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 bool Connection::StateMachine()
 {
     request_state_t req_state;
+	plugin_state_t  plugin_state;
     
     while (true)
     {
@@ -165,12 +177,22 @@ bool Connection::StateMachine()
 				break;
 			
             case CON_STATE_REQUEST_START:
+                if (!PluginRequestStart())
+				{
+            		return false;
+        		}
+
 				++con_req_cnt;
                 WantRead();
                 SetState(CON_STATE_READ);
                 break;
 
             case CON_STATE_READ:
+                if (!PluginRead())
+				{
+            		return false;
+        		}
+
                 req_state = GetParsedRequest();
                 if (req_state == REQ_ERROR) 
 				{
@@ -188,26 +210,48 @@ bool Connection::StateMachine()
 				break;
 
             case CON_STATE_REQUEST_END:
-                NotWantRead();
-                SetState(CON_STATE_HANDLE_REQUEST);
-                break;
+                if (!PluginRequestEnd())
+				{
+            		return false;
+        		}
 
-			case CON_STATE_HANDLE_REQUEST:
-				PrepareResponse();
+                NotWantRead();
 				SetState(CON_STATE_RESPONSE_START);
 				break;
 
             case CON_STATE_RESPONSE_START:
+                if (!PluginResponseStart())
+				{
+            		return false;
+        		}
+
                 WantWrite();
                 SetState(CON_STATE_WRITE);
                 break;
 
             case CON_STATE_WRITE:
+				plugin_state = PluginWrite();
+                
+                if (plugin_state == PLUGIN_ERROR) //need to send back 500(Server Internal Error)
+				{
+                    SetState(CON_STATE_ERROR);
+                    continue;
+                }
+                else if (plugin_state == PLUGIN_NOT_READY) //Plugin isn't ready, we continue with other connection
+				{                
+			    	return true;
+                }
+
                 con_outbuf += http_response.GetResponse();
                 SetState(CON_STATE_RESPONSE_END);
                 break;
 
             case CON_STATE_RESPONSE_END:
+                if (!PluginResponseEnd())
+				{
+            		return false;
+        		}
+
 				NotWantWrite(); //设置flag表示不想读，但是如果缓冲区还有数据，仍发送，发送完毕再注销写事件
                 delete http_req_parsed;
                 http_req_parsed = NULL;
@@ -220,7 +264,9 @@ bool Connection::StateMachine()
                 SetErrorResponse();
                 con_outbuf += http_response.GetResponse();
 				if (con_outbuf.empty())	//错误信息写出去之后才关闭连接
-                    return false;
+				{
+            		return false;
+        		}
                 return true;
 
             default:
@@ -343,3 +389,160 @@ request_state_t Connection::GetParsedRequest()
     return REQ_NOT_COMPLETE;
 }
 
+
+bool Connection::InitPluginDataSlots()
+{
+    plugin_cnt = con_worker->master->m_plugin_cnt;
+    
+    if (!plugin_cnt)
+    {
+        return true;
+    }
+
+	try
+	{
+    	plugin_data_slots = new void*[plugin_cnt];
+	}
+	catch(std::bad_alloc)
+	{
+		std::cout << "Connection::InitPluginDataSlots()" <<std::endl;
+	}
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        plugin_data_slots[i] = NULL;
+    }
+
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->Init(this, i)) 
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void Connection::FreePluginDataSlots()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (plugin_data_slots[i])
+        {
+            plugins[i]->Close(this, i);
+        }
+    }
+    
+    if (plugin_data_slots)
+    { 
+        delete []plugin_data_slots;
+    }
+}
+
+bool Connection::PluginRequestStart()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->RequestStart(this, i))
+		{
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Connection::PluginRead()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->Read(this, i))
+		{
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Connection::PluginRequestEnd()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->RequestEnd(this, i))
+		{
+            return false;
+        }
+    }
+
+	plugin_next = 0;
+
+    return true;
+}
+
+bool Connection::PluginResponseStart()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->ResponseStart(this, i))
+		{
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* NOTICE：if there are any plugin not ready， 
+ * next time the HandleRequest() of those who 
+ * are ready should not be called again.
+ */
+plugin_state_t Connection::PluginWrite()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = plugin_next; i < plugin_cnt; ++i)
+    {
+        plugin_state_t  plugin_state = plugins[i]->Write(this, i);
+
+		plugin_next = i;
+
+		if (plugin_state == PLUGIN_NOT_READY)
+        {
+            return PLUGIN_NOT_READY;
+        }
+        else if (plugin_state == PLUGIN_ERROR)
+        {
+            return PLUGIN_ERROR;
+        }
+    }
+
+    return PLUGIN_READY;
+}
+
+bool Connection::PluginResponseEnd()
+{
+    Plugin* *plugins = con_worker->master->m_plugins;
+
+    for (int i = 0; i < plugin_cnt; ++i)
+    {
+        if (!plugins[i]->ResponseEnd(this, i))
+		{
+            return false;
+        }
+    }
+
+    return true;
+}
