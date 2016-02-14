@@ -8,7 +8,7 @@
 #ifndef _PLUGIN_H
 #define _PLUGIN_H
 
-class Master;
+class Worker;
 class Connection;
 
 typedef enum
@@ -33,9 +33,9 @@ class Plugin
 		virtual bool ResponseEnd(Connection *con, int index);
 		virtual void Close(Connection *con, int index);
 
-		virtual bool Trigger(Master *master, int index);
-		virtual bool LoadPlugin(Master *master, int index);
-		virtual void FreePlugin(Master *master, int index);
+		virtual bool Trigger(Worker* worker, int index);
+		virtual bool LoadPlugin(Worker* worker, int index);
+		virtual void FreePlugin(Worker* worker, int index);
 
 		typedef Plugin* (*SetupPlugin)();
 		typedef void	(*RemovePlugin)(Plugin *plugin);

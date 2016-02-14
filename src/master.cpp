@@ -7,25 +7,20 @@
 
 #include "master.h"
 #include "worker.h"
-#include "plugin.h"
 
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <dlfcn.h>
-#include <stdlib.h>
 
 #include <iostream>
 
 Master::Master(const std::string &ip, unsigned short port)
-	:worker(ip, port)
+	:m_worker(ip, port)
 {
 	m_base = NULL;
 	m_exit_event  = NULL;
 	m_chld_event  = NULL;
 	nums_of_child = 4;
-	m_plugins	  = NULL;
-	m_plugin_cnt  = 0;
 }
 
 Master::~Master()
@@ -44,17 +39,11 @@ bool Master::StartMaster()
 {
 	std::cout << "Start Master" << std::endl;
 
-	worker.master = this;
-
-	if (!worker.listener.InitListener(&worker))
+	if (!m_worker.Init(this))
 	{
 		return false;
 	}
 
-	if (!(SetupPlugins() && LoadPlugins()))
-	{
-		return false;
-	}
 	//创建一定数量的worker
 	while (nums_of_child > 0)
 	{
@@ -64,7 +53,7 @@ bool Master::StartMaster()
 				return false;
 			case 0:
 			{
-				worker.Run();
+				m_worker.Run();
 				return true;
 			}	
 			default:
@@ -99,97 +88,5 @@ void Master::MasterChldSignal(evutil_socket_t signo, short event, void *arg)
 	{
 		++(master->nums_of_child);
 		std::cout << "Child " << pid << " terminated" << std::endl;
-	}
-}
-
-bool Master::SetupPlugins()
-{
-	const char *path;
-	int			index;
-
-	for (index = 0; plugin_config[index]; ++index)
-	{
-		path = plugin_config[index];
-		
-		void *so = dlopen(path, RTLD_LAZY);
-		if (!so)
-		{
-			std::cerr << dlerror() << std::endl;
-			return false;
-		}
-
-		Plugin::SetupPlugin setup_plugin = (Plugin::SetupPlugin)dlsym(so, "SetupPlugin");
-		Plugin::RemovePlugin remove_plugin = (Plugin::RemovePlugin)dlsym(so, "RemovePlugin");
-		if (!setup_plugin || !remove_plugin)
-		{
-			std::cerr << dlerror() << std::endl;
-			dlclose(so);
-			return false;
-		}
-
-		Plugin *plugin = setup_plugin();
-		if (!plugin)
-		{
-			dlclose(so);
-			return false;
-		}
-
-		plugin->setup_plugin = setup_plugin;
-		plugin->remove_plugin = remove_plugin;
-		plugin->plugin_so = so;
-		plugin->plugin_index = index;
-
-		m_plugins = (Plugin* *) realloc(m_plugins, sizeof(*m_plugins)*(m_plugin_cnt+1));
-		m_plugins[m_plugin_cnt++] = plugin;
-	}
-
-	return true;
-}
-
-void Master::RemovePlugins()
-{
-	Plugin *plugin;
-
-	for (int i = 0; i < m_plugin_cnt; ++i)
-	{
-		plugin = m_plugins[i];
-		Plugin::RemovePlugin remove_plugin = plugin->remove_plugin;
-		remove_plugin(plugin);
-		dlclose(plugin->plugin_so);
-	}
-	free(m_plugins);
-}
-
-bool Master::LoadPlugins()
-{
-	Plugin *plugin;
-
-	for (int i = 0; i < m_plugin_cnt; ++i)
-	{
-		plugin = m_plugins[i];
-		if (plugin->LoadPlugin(this, i))
-		{
-			plugin->plugin_is_loaded = true;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-void Master::UnloadPlugins()
-{
-	Plugin *plugin;
-
-	for (int i = 0; i < m_plugin_cnt; ++i)
-	{
-		plugin = m_plugins[i];
-		if (plugin->plugin_is_loaded)
-		{
-			plugin->FreePlugin(this, i);
-		}
 	}
 }

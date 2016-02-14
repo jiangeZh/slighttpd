@@ -14,7 +14,6 @@
 #include "event2/event.h"
 #include "event2/util.h"
 
-#include "util.h"
 #include "http.h"
 #include "plugin.h"
 
@@ -55,10 +54,8 @@ class Connection
 		Worker			   *con_worker;
 
 		evutil_socket_t		con_sockfd;
-		struct sockaddr_in	con_addr;
-		struct event	   *con_event;				//这里用两个event，一个注册读，一个注册写会效率高点
-		//struct event	   *write_event;
-		//struct event	   *read_event;
+		struct event	   *con_read_event;
+		struct event	   *con_write_event;
 
 		std::string			con_inbuf;
 		std::string			con_intmp;

@@ -20,6 +20,7 @@
 
 class Master;
 class Connection;
+class Plugin;
 
 class Worker
 {
@@ -30,21 +31,25 @@ class Worker
 		Worker(const std::string &ip, unsigned short port);
 		~Worker();
 
+		bool Init(Master *master);
 		void Run();
 
 		static void WorkerExitSignal(evutil_socket_t signo, short event, void *arg);
 
-		Master			   *master;
-		Listener			listener;
-		ConnectionMap		con_map;
+		Master			   *w_master;
+		Listener			w_listener;
+		ConnectionMap		w_con_map;
 
 		struct event_base  *w_base;
 		struct event	   *w_exit_event;
 
-		std::string			s_inbuf;
-		std::string			s_intmp;
-		std::string			s_outbuf;
-
+		Plugin*			   *w_plugins;
+		int				    w_plugin_cnt;
+	private:
+		bool SetupPlugins(); 		//get plugin object from so
+		bool LoadPlugins(); 		//call each plugin's Load callback to init some global plugin data
+		void RemovePlugins();
+		void UnloadPlugins();
 };
 
 #endif

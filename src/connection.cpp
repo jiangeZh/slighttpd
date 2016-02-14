@@ -7,7 +7,6 @@
 
 #include "connection.h"
 #include "worker.h"
-#include "plugin.h"
 #include "master.h"
 
 #include<iostream>
@@ -15,7 +14,8 @@
 Connection::Connection()
 {
 	con_worker 				= NULL;
-	con_event	 			= NULL;
+	con_read_event			= NULL;
+	con_write_event			= NULL;
 	con_keep_alive			= true;
 	con_req_cnt				= 0;
     http_req_parsed  		= NULL;
@@ -26,11 +26,13 @@ Connection::Connection()
 
 Connection::~Connection()
 {
-	if (con_event)
+	if (con_read_event && con_write_event)
 	{
 		FreePluginDataSlots();
 
-		event_free(con_event);
+		event_free(con_read_event);
+		event_free(con_write_event);
+
 		std::cout << con_sockfd << " closed" << std::endl;
 		close(con_sockfd);
 
@@ -60,10 +62,10 @@ void Connection::FreeConnection(Connection *con)
 {
 	Worker *worker = con->con_worker;
 
-	if (con->con_event)
+	if (con->con_read_event && con->con_write_event)
 	{
-		Worker::ConnectionMap::iterator con_iter = worker->con_map.find(con->con_sockfd);
-		worker->con_map.erase(con_iter);
+		Worker::ConnectionMap::iterator con_iter = worker->w_con_map.find(con->con_sockfd);
+		worker->w_con_map.erase(con_iter);
 	}
 
 	delete con;
@@ -87,8 +89,8 @@ bool Connection::InitConnection(Worker *worker)
     http_parser.InitParser(this);
 
 	evutil_make_socket_nonblocking(con_sockfd);
-	con_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST, Connection::ConEventCallback, this);
-	event_add(con_event, NULL);
+	con_read_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_READ, Connection::ConEventCallback, this);
+	con_write_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_WRITE, Connection::ConEventCallback, this);
 
     if (!InitPluginDataSlots())
     {
@@ -137,6 +139,7 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 
     if (event & EV_WRITE)
     {
+		std::cout << con->con_outbuf <<std::endl;
         int ret = write(sockfd, con->con_outbuf.c_str(), con->con_outbuf.size());
         if (ret == -1)
         {
@@ -181,7 +184,7 @@ bool Connection::StateMachine()
 				{
             		return false;
         		}
-
+				http_response.ResetResponse();
 				++con_req_cnt;
                 WantRead();
                 SetState(CON_STATE_READ);
@@ -283,23 +286,16 @@ void Connection::SetState(connection_state_t state)
     con_state = state;
 }
 
-
 void Connection::WantRead()
 {
     con_want_read = true;
-    short event = event_get_events(con_event);
-    event_del(con_event);
-    event_assign(con_event, con_worker->w_base, con_sockfd, event | EV_READ, Connection::ConEventCallback, this);
-    event_add(con_event, NULL); 
+    event_add(con_read_event, NULL); 
 }
 
 void Connection::NotWantRead()
 {
     con_want_read = false;
-    short event = event_get_events(con_event);
-    event_del(con_event);
-    event_assign(con_event, con_worker->w_base, con_sockfd, event & (~EV_READ), Connection::ConEventCallback, this);
-    event_add(con_event, NULL); 
+    event_del(con_read_event);
 }
 
 void Connection::WantWrite() 
@@ -321,32 +317,28 @@ void Connection::NotWantWrite()
 
 void Connection::SetWriteEvent()
 {
-    short event = event_get_events(con_event);
-    event_del(con_event);
-    event_assign(con_event, con_worker->w_base, con_sockfd, event | EV_WRITE, Connection::ConEventCallback, this);
-    event_add(con_event, NULL); 
+	event_add(con_write_event, NULL);
 }
 
 void Connection::UnsetWriteEvent() 
 {
-    short event = event_get_events(con_event);
-    event_del(con_event);
-    event_assign(con_event, con_worker->w_base, con_sockfd, event & (~EV_WRITE), Connection::ConEventCallback, this);
-    event_add(con_event, NULL);
+    event_del(con_write_event);
 }
 
 void Connection::ResetConnection()
 {
+	http_response.ResetResponse();
 	while (!req_queue.empty())
 		req_queue.pop();
 	con_req_cnt = 0;
 }
 
+//just for test
 void Connection::PrepareResponse()
 {
 	http_response.http_code    = 200;
 	http_response.http_phrase = "ok";
-	http_response.http_body = "<html><body>hello</body></html>"; //just for test
+	http_response.http_body = "<html><body>hello</body></html>";
 }
 
 void Connection::SetErrorResponse()
@@ -389,10 +381,9 @@ request_state_t Connection::GetParsedRequest()
     return REQ_NOT_COMPLETE;
 }
 
-
 bool Connection::InitPluginDataSlots()
 {
-    plugin_cnt = con_worker->master->m_plugin_cnt;
+    plugin_cnt = con_worker->w_plugin_cnt;
     
     if (!plugin_cnt)
     {
@@ -413,7 +404,7 @@ bool Connection::InitPluginDataSlots()
         plugin_data_slots[i] = NULL;
     }
 
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -422,12 +413,13 @@ bool Connection::InitPluginDataSlots()
             return false;
         }
     }
+
     return true;
 }
 
 void Connection::FreePluginDataSlots()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -445,7 +437,7 @@ void Connection::FreePluginDataSlots()
 
 bool Connection::PluginRequestStart()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -460,7 +452,7 @@ bool Connection::PluginRequestStart()
 
 bool Connection::PluginRead()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -475,7 +467,7 @@ bool Connection::PluginRead()
 
 bool Connection::PluginRequestEnd()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -492,7 +484,7 @@ bool Connection::PluginRequestEnd()
 
 bool Connection::PluginResponseStart()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {
@@ -511,7 +503,7 @@ bool Connection::PluginResponseStart()
  */
 plugin_state_t Connection::PluginWrite()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = plugin_next; i < plugin_cnt; ++i)
     {
@@ -534,7 +526,7 @@ plugin_state_t Connection::PluginWrite()
 
 bool Connection::PluginResponseEnd()
 {
-    Plugin* *plugins = con_worker->master->m_plugins;
+    Plugin* *plugins = con_worker->w_plugins;
 
     for (int i = 0; i < plugin_cnt; ++i)
     {

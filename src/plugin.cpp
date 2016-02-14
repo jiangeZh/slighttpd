@@ -6,7 +6,7 @@
  ************************************************************************/
 
 #include "plugin.h"
-#include "master.h"
+#include "worker.h"
 #include "connection.h"
 
 Plugin::Plugin()
@@ -56,17 +56,17 @@ bool Plugin::ResponseEnd(Connection *con, int index)
 
 void Plugin::Close(Connection *con, int index)	{}
 
-bool Plugin::Trigger(Master *master, int index)
+bool Plugin::Trigger(Worker* worker, int index)
 {
 	return true;
 }
 
-bool Plugin::LoadPlugin(Master *master, int index)
+bool Plugin::LoadPlugin(Worker* worker, int index)
 {
 	return true;
 }
 
-void Plugin::FreePlugin(Master *master, int index)	{}
+void Plugin::FreePlugin(Worker* worker, int index)	{}
 
 const char * plugin_config[] = 
 {

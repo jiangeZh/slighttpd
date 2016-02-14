@@ -19,7 +19,6 @@ Listener::Listener(const std::string &ip, unsigned short port)
 	listen_addr.sin_port		= htons(port);
 	listen_event				= NULL;
 	cnt_connection	= 0;
-	std::cout << "Init listener" << std::endl;
 }
 
 
@@ -30,7 +29,6 @@ Listener::~Listener()
 		event_free(listen_event);
 		close(listen_sockfd);
 	}
-	std::cout << "Listener closed" << std::endl;
 }
 
 bool Listener::InitListener(Worker *worker)
@@ -56,7 +54,7 @@ bool Listener::InitListener(Worker *worker)
 	}
 
 	listen_worker = worker;
-	//当return false时有bug，可能出在event_del上
+
 	return true;
 }
 
@@ -68,6 +66,15 @@ void Listener::AddListenEvent()
 
 void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *arg)
 {
+	evutil_socket_t con_fd;
+	struct sockaddr_in con_addr;
+	socklen_t addr_len	= sizeof(con_addr);
+	if (-1 == (con_fd = accept(sockfd, (struct sockaddr*)&con_addr, &addr_len)))
+	{
+		//std::cout << "Thundering herd" <<std::endl;
+		return ;
+	}
+
 	Listener *listener	= (Listener*)arg;
 	Connection *con		= NULL;
 	try
@@ -78,22 +85,11 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 	{
 		std::cout << "Here listen" <<std::endl;
 	}
-	socklen_t addr_len	= sizeof(con->con_addr);
-	//需要处理惊群
-	//这里不应该退出，不然尝试失败的程序就结束了
-	if (-1 == (con->con_sockfd = accept(sockfd, (struct sockaddr*)&con->con_addr, &addr_len)))
-	{
 
-		delete con;
-		return ;
-/*		
-		if (errno != EAGAIN && errno != EINTR)
-		{
-			event_base_loopexit(listener->worker->w_base, NULL);
-		}
-*/
-	}
+	con->con_sockfd = con_fd;
+
 	pid_t pid = getpid();
+
 	std::cout << "listen accept: " << con->con_sockfd << " by process " << pid <<std::endl;
 
 	if (!con->InitConnection(listener->listen_worker))
@@ -101,7 +97,7 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 		Connection::FreeConnection(con);
 		return ;
 	}
-	con->con_worker->con_map[con->con_sockfd] = con;
+	con->con_worker->w_con_map[con->con_sockfd] = con;
 	++(listener->cnt_connection);
 
 }
