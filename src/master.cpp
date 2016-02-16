@@ -17,10 +17,10 @@
 Master::Master(const std::string &ip, unsigned short port)
 	:m_worker(ip, port)
 {
-	m_base = NULL;
-	m_exit_event  = NULL;
-	m_chld_event  = NULL;
-	nums_of_child = 4;
+	m_base 			= NULL;
+	m_exit_event  	= NULL;
+	m_chld_event  	= NULL;
+	nums_of_child 	= 4;
 }
 
 Master::~Master()
@@ -41,6 +41,7 @@ bool Master::StartMaster()
 
 	if (!m_worker.Init(this))
 	{
+		std::cerr<< "Master: Worker::Init()" << std::endl;
 		return false;
 	}
 
@@ -50,6 +51,7 @@ bool Master::StartMaster()
 		switch (fork())
 		{
 			case -1:
+				std::cerr<< "Master: StartMaster(): fork()" << std::endl;
 				return false;
 			case 0:
 			{
@@ -81,7 +83,7 @@ void Master::MasterExitSignal(evutil_socket_t signo, short event, void *arg)
 
 void Master::MasterChldSignal(evutil_socket_t signo, short event, void *arg)
 {	
-	Master *master = (Master *)arg;
+	Master *master = static_cast<Master*>(arg);
 	pid_t	pid;
 	int		stat;
 	while ( (pid = waitpid(-1, &stat, WNOHANG)) > 0)

@@ -20,6 +20,7 @@ class Worker;
 class Listener
 {
 	public:
+
 		Listener(const std::string &ip, unsigned short port);
 		~Listener();
 
@@ -28,11 +29,15 @@ class Listener
 	
 		static void ListenEventCallback(evutil_socket_t fd, short event, void *arg);
 
+	public:
+
 		Worker			   *listen_worker;
 		evutil_socket_t		listen_sockfd;
 		struct sockaddr_in	listen_addr;
 		struct event	   *listen_event;
 		int					cnt_connection;
+
+
 };
 
 

@@ -12,6 +12,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 #include "event2/event.h"
 #include "event2/util.h"
@@ -26,30 +27,48 @@ class Worker
 {
 	public:
 
-		typedef std::map<evutil_socket_t, Connection*> ConnectionMap;
-
 		Worker(const std::string &ip, unsigned short port);
 		~Worker();
 
 		bool Init(Master *master);
 		void Run();
+		Connection* NewCon();
+		static void CloseCon(Connection* con);
 
-		static void WorkerExitSignal(evutil_socket_t signo, short event, void *arg);
+	public:
 
-		Master			   *w_master;
-		Listener			w_listener;
+		typedef std::map<evutil_socket_t, Connection*> ConnectionMap;
 		ConnectionMap		w_con_map;
 
 		struct event_base  *w_base;
-		struct event	   *w_exit_event;
 
 		Plugin*			   *w_plugins;
 		int				    w_plugin_cnt;
+
 	private:
+
 		bool SetupPlugins(); 		//get plugin object from so
 		bool LoadPlugins(); 		//call each plugin's Load callback to init some global plugin data
 		void RemovePlugins();
 		void UnloadPlugins();
+
+		void InitConPool();
+		Connection* GetFreeCon();
+		bool AddConToFreePool(Connection* con);
+		static void FreeCon(Connection *con);
+
+		static void WorkerExitSignal(evutil_socket_t signo, short event, void *arg);
+
+	private:
+
+		Master			   *w_master;
+		Listener			w_listener;
+		struct event	   *w_exit_event;
+
+		typedef std::vector<Connection*> con_pool_t;
+		con_pool_t			con_pool;
+		int					con_pool_size;
+		int					con_pool_cur;
 };
 
 #endif

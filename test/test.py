@@ -7,7 +7,7 @@ import threading
 
 thread_num = 1000
 
-http_request = "POST /doc/index.html HTTP/1.1\r\nHost:test.py\r\nConnection:Keep-Alive\r\nContent-Length:5\r\n\r\nHello"
+http_request = "POST /htdocs/index.html HTTP/1.1\r\nHost:test.py\r\nConnection:Keep-Alive\r\nContent-Length:5\r\n\r\nHello"
 
 def make_a_request():
     sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -16,8 +16,8 @@ def make_a_request():
     sockfd.recv(8000)
     #sockfd.sendall(http_request)
     #sockfd.recv(8000)
-    #sockfd.close()
-    time.sleep(5)
+    #time.sleep(5)
+    sockfd.close()
 
 if __name__ == "__main__":
     thread_list = []

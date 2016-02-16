@@ -70,7 +70,7 @@ class PluginStatic: public Plugin
         regmatch_t pmatch;
         int        nmatch;
 
-        regcomp(&reg, "^/doc/[^/]*$", REG_EXTENDED);
+        regcomp(&reg, "^/htdocs/[^/]*$", REG_EXTENDED);
         nmatch = regexec(&reg, request->http_url.c_str(), 1, &pmatch, 0);
         
         if (nmatch)

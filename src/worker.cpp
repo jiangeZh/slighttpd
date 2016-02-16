@@ -34,13 +34,12 @@ Worker::~Worker()
 
 	if (w_base)
 	{
-		ConnectionMap::iterator con_iter = w_con_map.begin();
-		while (con_iter != w_con_map.end())
+		for (int i = 0; i < con_pool_cur; ++i)
 		{
-			Connection *con = con_iter->second;
+			Connection *con = con_pool[i];
 			delete con;
-			++con_iter;
 		}
+
 		event_base_free(w_base);
 	}
 	//需要在释放con之后，此时con中插件的数据已经被清理掉
@@ -52,13 +51,17 @@ bool Worker::Init(Master *master)
 {
 	w_master = master;
 
+	InitConPool();
+
 	if (!w_listener.InitListener(this))
 	{
+		std::cerr<< "Worker: Listener::InitListener()" << std::endl;
 		return false;
 	}
 
 	if (!(SetupPlugins() && LoadPlugins()))
 	{
+		std::cerr<< "Worker: SetupPlugins() && LoadPlugins()" << std::endl;
 		return false;
 	}
 
@@ -117,7 +120,7 @@ bool Worker::SetupPlugins()
 		plugin->plugin_so = so;
 		plugin->plugin_index = i;
 
-		w_plugins = (Plugin* *) realloc(w_plugins, sizeof(*w_plugins)*(w_plugin_cnt+1));
+		w_plugins = static_cast<Plugin* *> (realloc(w_plugins, sizeof(*w_plugins)*(w_plugin_cnt+1)));
 		w_plugins[w_plugin_cnt++] = plugin;
 	}
 
@@ -152,6 +155,7 @@ bool Worker::LoadPlugins()
 		}
 		else
 		{
+			std::cerr<< "Worker: Plugin::LoadPlugin()" << std::endl;
 			return false;
 		}
 	}
@@ -171,4 +175,85 @@ void Worker::UnloadPlugins()
 			plugin->FreePlugin(this, i);
 		}
 	}
+}
+
+
+void Worker::InitConPool()
+{
+	con_pool_size	= 200;
+	con_pool_cur	= 0;
+	con_pool.resize(con_pool_size);
+}
+
+Connection* Worker::GetFreeCon()
+{
+	Connection *con = NULL;
+
+	if(con_pool_cur > 0)
+	{
+		con = con_pool.at(--con_pool_cur);
+	}
+
+	return con;
+}
+
+bool Worker::AddConToFreePool(Connection* con)
+{
+	bool ret = false;
+	if (con_pool_cur < con_pool_size)
+	{
+		con_pool.at(con_pool_cur++) = con;
+		ret = true;
+	}
+	else
+	{
+		/* 增大连接内存池队列 */
+		size_t newsize = con_pool_size * 2;
+		con_pool.resize(newsize);
+		con_pool_size = newsize;
+		con_pool.at(con_pool_cur++) = con;
+		ret = true;
+	}
+
+	return ret;
+}
+
+void Worker::FreeCon(Connection *con)
+{
+	delete con;
+}
+
+void Worker::CloseCon(Connection* con)
+{
+	Worker *worker = con->con_worker;
+
+	if (con->con_read_event && con->con_write_event)
+	{
+		Worker::ConnectionMap::iterator con_iter = worker->w_con_map.find(con->con_sockfd);
+		worker->w_con_map.erase(con_iter);
+	}
+	con->ResetCon();
+	/* if the connection has big buffers, just free it */
+	if (!worker->AddConToFreePool(con))
+	{
+		Worker::FreeCon(con);
+	}
+
+	return;
+}
+
+Connection* Worker::NewCon()
+{
+	//连接池获取一个空闲连接
+	Connection* con = GetFreeCon();
+	if (NULL == con)
+	{
+		con = new Connection();	//连接池没有空闲的，分配一个
+		if (NULL == con)
+		{
+			return NULL;
+		}
+
+	}
+	return con;
 }

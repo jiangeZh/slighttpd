@@ -16,15 +16,58 @@ Connection::Connection()
 	con_worker 				= NULL;
 	con_read_event			= NULL;
 	con_write_event			= NULL;
-	con_keep_alive			= true;
-	con_req_cnt				= 0;
     http_req_parsed  		= NULL;
     http_req_parser  		= NULL;
 	plugin_data_slots		= NULL;
+	con_keep_alive			= true;
+	con_req_cnt				= 0;
 	plugin_cnt				= 0;
 }
 
 Connection::~Connection()
+{
+
+}
+
+bool Connection::InitConnection(Worker *worker)
+{
+	con_worker = worker;
+
+	try
+	{	
+		con_intmp.reserve(10 * 1024);
+		con_inbuf.reserve(10 * 1024);
+		con_outbuf.reserve(10 * 1024);
+	}
+	catch(std::bad_alloc)
+	{
+		std::cerr<< "Connection::InitConnection(): std::bad_alloc" << std::endl;
+	}
+
+    http_parser.InitParser(this);
+
+	evutil_make_socket_nonblocking(con_sockfd);
+	con_read_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_READ, Connection::ConEventCallback, this);
+	con_write_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_WRITE, Connection::ConEventCallback, this);
+
+    if (!InitPluginDataSlots())
+    {
+		std::cerr<< "Connection::InitConnection(): InitPluginDataSlots()" << std::endl;
+        return false;
+    }
+
+    SetState(CON_STATE_REQUEST_START);
+
+    if (!StateMachine())
+    {
+		std::cerr<< "Connection::InitConnection(): StateMachine()" << std::endl;
+        return false;
+    }
+
+	return true;
+}
+
+void Connection::ResetCon()
 {
 	if (con_read_event && con_write_event)
 	{
@@ -55,63 +98,21 @@ Connection::~Connection()
             delete http_req_parser;
         }
 	}
+	con_worker 				= NULL;
+	con_read_event			= NULL;
+	con_write_event			= NULL;
+    http_req_parsed  		= NULL;
+    http_req_parser  		= NULL;
+	plugin_data_slots		= NULL;
+	con_keep_alive			= true;
+	con_req_cnt				= 0;
+	plugin_cnt				= 0;
 }
-
-//从worker中删除该连接，之后释放内存
-void Connection::FreeConnection(Connection *con)
-{
-	Worker *worker = con->con_worker;
-
-	if (con->con_read_event && con->con_write_event)
-	{
-		Worker::ConnectionMap::iterator con_iter = worker->w_con_map.find(con->con_sockfd);
-		worker->w_con_map.erase(con_iter);
-	}
-
-	delete con;
-}
-
-bool Connection::InitConnection(Worker *worker)
-{
-	con_worker = worker;
-
-	try
-	{	
-		con_intmp.reserve(10 * 1024);
-		con_inbuf.reserve(10 * 1024);
-		con_outbuf.reserve(10 * 1024);
-	}
-	catch(std::bad_alloc)
-	{
-		std::cout << "Here con" <<std::endl;
-	}
-
-    http_parser.InitParser(this);
-
-	evutil_make_socket_nonblocking(con_sockfd);
-	con_read_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_READ, Connection::ConEventCallback, this);
-	con_write_event = event_new(con_worker->w_base, con_sockfd, EV_PERSIST | EV_WRITE, Connection::ConEventCallback, this);
-
-    if (!InitPluginDataSlots())
-    {
-        return false;
-    }
-
-    SetState(CON_STATE_REQUEST_START);
-
-    if (!StateMachine())
-    {
-        return false;
-    }
-
-	return true;
-}
-
 
 void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg)
 {
 
-    Connection *con = (Connection*)arg;
+    Connection *con = static_cast<Connection*>(arg);
 
     if (event & EV_READ) 
     {
@@ -122,13 +123,14 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
         {
            	if (errno != EAGAIN && errno != EINTR)
            	{
-           	    FreeConnection(con);
+				std::cerr<< "Connection::ConEventCallback: read()" << std::endl;
+           	    Worker::CloseCon(con);
               	return;
            	}
         }
         else if (ret == 0)
         {
-           	FreeConnection(con); 
+           	Worker::CloseCon(con); 
            	return;
         }
         else
@@ -139,13 +141,14 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 
     if (event & EV_WRITE)
     {
-		std::cout << con->con_outbuf <<std::endl;
+		//std::cout << con->con_outbuf <<std::endl;
         int ret = write(sockfd, con->con_outbuf.c_str(), con->con_outbuf.size());
         if (ret == -1)
         {
             if (errno != EAGAIN && errno != EINTR)
             {
-                    FreeConnection(con);
+					std::cerr<< "Connection::ConEventCallback: write()" << std::endl;
+                    Worker::CloseCon(con);
                     return;
             }
         }
@@ -161,7 +164,7 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 
 	if (!con->StateMachine())
     {
-        FreeConnection(con);
+        Worker::CloseCon(con);
     }
 }
 
@@ -182,6 +185,7 @@ bool Connection::StateMachine()
             case CON_STATE_REQUEST_START:
                 if (!PluginRequestStart())
 				{
+					std::cerr<< "Connection::StateMachine(): PluginRequestStart()" << std::endl;
             		return false;
         		}
 				http_response.ResetResponse();
@@ -193,12 +197,14 @@ bool Connection::StateMachine()
             case CON_STATE_READ:
                 if (!PluginRead())
 				{
+					std::cerr<< "Connection::StateMachine(): PluginRead()" << std::endl;
             		return false;
         		}
 
                 req_state = GetParsedRequest();
                 if (req_state == REQ_ERROR) 
 				{
+					std::cerr<< "Connection::StateMachine(): GetParsedRequest()" << std::endl;
                     return false;
                 } 
                 else if (req_state == REQ_IS_COMPLETE) 
@@ -215,6 +221,7 @@ bool Connection::StateMachine()
             case CON_STATE_REQUEST_END:
                 if (!PluginRequestEnd())
 				{
+					std::cerr<< "Connection::StateMachine(): PluginRequestEnd()" << std::endl;
             		return false;
         		}
 
@@ -225,6 +232,7 @@ bool Connection::StateMachine()
             case CON_STATE_RESPONSE_START:
                 if (!PluginResponseStart())
 				{
+					std::cerr<< "Connection::StateMachine(): PluginResponseStart()" << std::endl;
             		return false;
         		}
 
@@ -252,6 +260,7 @@ bool Connection::StateMachine()
             case CON_STATE_RESPONSE_END:
                 if (!PluginResponseEnd())
 				{
+					std::cerr<< "Connection::StateMachine(): PluginResponseEnd()" << std::endl;
             		return false;
         		}
 
@@ -396,7 +405,7 @@ bool Connection::InitPluginDataSlots()
 	}
 	catch(std::bad_alloc)
 	{
-		std::cout << "Connection::InitPluginDataSlots()" <<std::endl;
+		std::cerr<< "Connection::InitPluginDataSlots(): std::bad_alloc" << std::endl;
 	}
 
     for (int i = 0; i < plugin_cnt; ++i)
@@ -410,6 +419,7 @@ bool Connection::InitPluginDataSlots()
     {
         if (!plugins[i]->Init(this, i)) 
         {
+			std::cerr<< "Connection::InitPluginDataSlots(): Plugin::Init()" << std::endl;
             return false;
         }
     }

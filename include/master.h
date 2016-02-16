@@ -24,8 +24,12 @@ class Master
 		
 		bool StartMaster();
 
+	private:
+
 		static void MasterExitSignal(evutil_socket_t signo, short event, void *arg);
 		static void MasterChldSignal(evutil_socket_t signo, short event, void *arg);
+
+	private:
 
 		Worker			    m_worker;
 

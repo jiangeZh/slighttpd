@@ -72,7 +72,7 @@ int HttpParser::HttpParseRequest(const std::string &inbuf)
 
 int HttpParser::OnMessageBeginCallback(http_parser *parser)
 {
-    Connection *con = (Connection*)parser->data;
+    Connection *con = static_cast<Connection*>(parser->data);
     
     con->http_req_parser = new HttpRequest();
     
@@ -81,7 +81,7 @@ int HttpParser::OnMessageBeginCallback(http_parser *parser)
 
 int HttpParser::OnUrlCallback(http_parser *parser, const char *at, size_t length)
 {
-    Connection *con = (Connection*)parser->data;
+    Connection *con = static_cast<Connection*>(parser->data);
     
     con->http_req_parser->http_url.assign(at, length);
 
@@ -90,7 +90,7 @@ int HttpParser::OnUrlCallback(http_parser *parser, const char *at, size_t length
 
 int HttpParser::OnHeaderFieldCallback(http_parser *parser, const char *at, size_t length)
 {
-    Connection *con = (Connection*)parser->data;
+    Connection *con = static_cast<Connection*>(parser->data);
     
     con->http_req_parser->http_header_field.assign(at, length);
 
@@ -99,7 +99,7 @@ int HttpParser::OnHeaderFieldCallback(http_parser *parser, const char *at, size_
 
 int HttpParser::OnHeaderValueCallback(http_parser *parser, const char *at, size_t length)
 {
-    Connection      *con  = (Connection*)parser->data;
+    Connection      *con  = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
     
     request->http_headers[request->http_header_field] = std::string(at, length);
@@ -109,7 +109,7 @@ int HttpParser::OnHeaderValueCallback(http_parser *parser, const char *at, size_
 
 int HttpParser::OnHeadersCompleteCallback(http_parser *parser)
 {
-	Connection      *con  = (Connection*)parser->data;
+	Connection      *con  = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
 	request->http_method    = http_method_str((http_method)parser->method);
     return 0;
@@ -117,7 +117,7 @@ int HttpParser::OnHeadersCompleteCallback(http_parser *parser)
 
 int HttpParser::OnBodyCallback(http_parser *parser, const char *at, size_t length)
 {
-    Connection *con = (Connection*)parser->data;
+    Connection *con = static_cast<Connection*>(parser->data);
     
     // NOTICE:OnBody may be called many times per Reuqest
     con->http_req_parser->http_body.append(at, length); 
@@ -127,7 +127,7 @@ int HttpParser::OnBodyCallback(http_parser *parser, const char *at, size_t lengt
 
 int HttpParser::OnMessageCompleteCallback(http_parser *parser)
 {
-    Connection      *con  = (Connection*)parser->data;
+    Connection      *con  = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
     
     con->req_queue.push(request);

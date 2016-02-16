@@ -35,6 +35,7 @@ bool Listener::InitListener(Worker *worker)
 {
 	if (-1 == (listen_sockfd = socket(AF_INET, SOCK_STREAM, 0)))
 	{
+		std::cerr<< "Listener::InitListener(): socket()" << std::endl;
 		return false;
 	}
 
@@ -46,10 +47,12 @@ bool Listener::InitListener(Worker *worker)
 
 	if (0 != bind(listen_sockfd, (struct sockaddr*)&listen_addr, sizeof(listen_addr)))
 	{
+		std::cerr<< "Listener::InitListener(): bind()" << std::endl;
 		return false;
 	}
 	if (0 != listen(listen_sockfd, 5))
 	{
+		std::cerr<< "Listener::InitListener(): listen()" << std::endl;
 		return false;
 	}
 
@@ -75,15 +78,12 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 		return ;
 	}
 
-	Listener *listener	= (Listener*)arg;
-	Connection *con		= NULL;
-	try
+	Listener *listener	= static_cast<Listener*>(arg);
+	Connection *con		= listener->listen_worker->NewCon();
+	if (con == NULL)
 	{
-		con = new Connection();
-	}
-	catch(std::bad_alloc)
-	{
-		std::cout << "Here listen" <<std::endl;
+		std::cerr<< "Listener::ListenEventCallback(): NewCon()" << std::endl;
+		return ;
 	}
 
 	con->con_sockfd = con_fd;
@@ -94,7 +94,8 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 
 	if (!con->InitConnection(listener->listen_worker))
 	{
-		Connection::FreeConnection(con);
+		std::cerr<< "Listener::ListenEventCallback(): Connection::InitConnection()" << std::endl;
+		Worker::CloseCon(con);
 		return ;
 	}
 	con->con_worker->w_con_map[con->con_sockfd] = con;

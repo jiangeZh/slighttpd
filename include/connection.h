@@ -42,42 +42,32 @@ class Worker;
 class Connection
 {
 	public:
-	    typedef std::queue<HttpRequest*> req_queue_t;
 
 		Connection();
 		~Connection();
 
 		bool InitConnection(Worker *worker);
-		static void ConEventCallback(evutil_socket_t fd, short event, void *arg);
-		static void FreeConnection(Connection *con);
+		void ResetCon();
+
+	public:
+
+		typedef std::queue<HttpRequest*> req_queue_t;
 
 		Worker			   *con_worker;
-
 		evutil_socket_t		con_sockfd;
 		struct event	   *con_read_event;
 		struct event	   *con_write_event;
-
-		std::string			con_inbuf;
-		std::string			con_intmp;
-		std::string			con_outbuf;
-
 		req_queue_t			req_queue;
-
-	    bool				con_want_write;
-	    bool				con_want_read;
-		bool				con_keep_alive;
-		int 				con_req_cnt;
+	    HttpRequest		   *http_req_parser;  	//解析时用
+	    HttpRequest		   *http_req_parsed;   //处理请求时用
+	    HttpResponse		http_response;
 
 		void*			   *plugin_data_slots;
 		int					plugin_cnt;
 		int                	plugin_next;
 
-	    HttpRequest		   *http_req_parser;  	//解析时用
-	    HttpRequest		   *http_req_parsed;   //处理请求时用
-	    HttpResponse		http_response;
-	    HttpParser			http_parser;
-
 	private:
+
     	void WantRead();
     	void NotWantRead();
     	void WantWrite();
@@ -101,9 +91,23 @@ class Connection
     	plugin_state_t PluginWrite();
     	bool PluginResponseEnd();
 
+		static void ConEventCallback(evutil_socket_t fd, short event, void *arg);
+
+	private:
+
+	    bool				con_want_write;
+	    bool				con_want_read;
+		bool				con_keep_alive;
+		int 				con_req_cnt;
+
+	    HttpParser			http_parser;
+
+		std::string			con_inbuf;
+		std::string			con_intmp;
+		std::string			con_outbuf;
+
 		connection_state_t	con_state;
 		request_state_t		req_state;
-
 };
 
 #endif
