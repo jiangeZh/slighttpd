@@ -49,6 +49,6 @@ class Plugin
 		bool  plugin_is_loaded;
 };
 
-extern const char * plugin_config[];
+extern const char * plugin_list[];
 
 #endif

@@ -7,7 +7,6 @@
 
 #include "connection.h"
 #include "worker.h"
-#include "master.h"
 
 #include<iostream>
 
@@ -111,14 +110,12 @@ void Connection::ResetCon()
 
 void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg)
 {
-
     Connection *con = static_cast<Connection*>(arg);
 
     if (event & EV_READ) 
     {
         int cap = con->con_intmp.capacity();
         int ret = read(sockfd, &con->con_intmp[0], cap);
-    
         if (ret == -1)
         {
            	if (errno != EAGAIN && errno != EINTR)
@@ -141,7 +138,7 @@ void Connection::ConEventCallback(evutil_socket_t sockfd, short event, void *arg
 
     if (event & EV_WRITE)
     {
-		//std::cout << con->con_outbuf <<std::endl;
+		std::cout << con->con_outbuf <<std::endl;
         int ret = write(sockfd, con->con_outbuf.c_str(), con->con_outbuf.size());
         if (ret == -1)
         {

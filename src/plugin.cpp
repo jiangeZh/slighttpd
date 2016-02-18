@@ -68,8 +68,9 @@ bool Plugin::LoadPlugin(Worker* worker, int index)
 
 void Plugin::FreePlugin(Worker* worker, int index)	{}
 
-const char * plugin_config[] = 
+const char * plugin_list[] = 
 {
 	"plugin/plugin_static/plugin_static.so",
+	"plugin/plugin_cgi/plugin_cgi.so",
 	NULL
 };

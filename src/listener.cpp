@@ -18,7 +18,7 @@ Listener::Listener(const std::string &ip, unsigned short port)
 	listen_addr.sin_addr.s_addr	= inet_addr(ip.c_str());
 	listen_addr.sin_port		= htons(port);
 	listen_event				= NULL;
-	cnt_connection	= 0;
+	listen_con_cnt				= 0;
 }
 
 
@@ -99,6 +99,6 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 		return ;
 	}
 	con->con_worker->w_con_map[con->con_sockfd] = con;
-	++(listener->cnt_connection);
+	++(listener->listen_con_cnt);
 
 }

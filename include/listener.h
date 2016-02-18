@@ -35,7 +35,7 @@ class Listener
 		evutil_socket_t		listen_sockfd;
 		struct sockaddr_in	listen_addr;
 		struct event	   *listen_event;
-		int					cnt_connection;
+		int					listen_con_cnt;
 
 
 };

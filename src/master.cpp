@@ -6,7 +6,6 @@
  ************************************************************************/
 
 #include "master.h"
-#include "worker.h"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -30,8 +29,8 @@ Master::~Master()
         event_free(m_exit_event);
         event_free(m_chld_event);
 		event_base_free(m_base);
+		std::cout << "Master Closed" << std::endl;
 	}
-	std::cout << "Master Closed" << std::endl;
 }
 
 

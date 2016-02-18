@@ -41,10 +41,10 @@ Worker::~Worker()
 		}
 
 		event_base_free(w_base);
+		std::cout<< "----total connection: " << w_listener.listen_con_cnt << "----" << std::endl;
 	}
 	//需要在释放con之后，此时con中插件的数据已经被清理掉
 	RemovePlugins();
-	std::cout<< "----total connection: " << w_listener.cnt_connection << "----" << std::endl;
 }
 
 bool Worker::Init(Master *master)
@@ -88,9 +88,9 @@ bool Worker::SetupPlugins()
 {
 	const char *path;
 
-	for (int i = 0; plugin_config[i]; ++i)
+	for (int i = 0; plugin_list[i]; ++i)
 	{
-		path = plugin_config[i];
+		path = plugin_list[i];
 		
 		void *so = dlopen(path, RTLD_LAZY);
 		if (!so)
@@ -120,7 +120,7 @@ bool Worker::SetupPlugins()
 		plugin->plugin_so = so;
 		plugin->plugin_index = i;
 
-		w_plugins = static_cast<Plugin* *> (realloc(w_plugins, sizeof(*w_plugins)*(w_plugin_cnt+1)));
+		w_plugins = static_cast<Plugin* *> (realloc(w_plugins, sizeof(*w_plugins)*(w_plugin_cnt+1))); //扩大空间
 		w_plugins[w_plugin_cnt++] = plugin;
 	}
 

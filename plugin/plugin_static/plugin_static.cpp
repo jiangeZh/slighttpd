@@ -26,56 +26,50 @@
 #include <iostream>
 #include <string>
 
-enum StaticStatus
+typedef enum
 {
     INIT,
     READ,
-    OVER,
-    NON_EXIST,
-    NON_ACCESS
-};
+    DONE,
+    NOT_EXIST,
+    NOT_ACCESS
+} static_state_t;
 
-struct StaticData
+typedef struct StaticData
 {
-    StaticData()
-    {
-        s_fd     = -1;
-        s_status = INIT;
-    }
+    StaticData(): s_fd(-1), s_state(INIT) {}
 
     int          s_fd;
     std::string  s_buf;
-    std::string  s_all;
-    StaticStatus s_status;
-};
+    std::string  s_data;
+    static_state_t s_state;
+} static_data_t;
 
 class PluginStatic: public Plugin
 {
     virtual bool Init(Connection *con, int index)
     {
-        StaticData *sdata = new StaticData();     
-        sdata->s_fd = -1;
-        sdata->s_buf.reserve(10 * 1024);  
-        con->plugin_data_slots[index] = sdata;
-
+        static_data_t *data = new static_data_t();
+        data->s_buf.reserve(10 * 1024);  
+        con->plugin_data_slots[index] = data;
         return true;
     }
 
     virtual bool ResponseStart(Connection *con, int index)
     {
-        StaticData  *sdata   = (StaticData*)con->plugin_data_slots[index];
+        static_data_t  *data = static_cast<static_data_t*>(con->plugin_data_slots[index]);
         HttpRequest *request = con->http_req_parsed;
 
         regex_t    reg;
         regmatch_t pmatch;
-        int        nmatch;
+        int        ret;
 
         regcomp(&reg, "^/htdocs/[^/]*$", REG_EXTENDED);
-        nmatch = regexec(&reg, request->http_url.c_str(), 1, &pmatch, 0);
+        ret = regexec(&reg, request->http_url.c_str(), 1, &pmatch, 0);
         
-        if (nmatch)
+        if (ret)
         {
-            sdata->s_status = NON_ACCESS;
+            data->s_state = NOT_ACCESS;
         }
         else
         {
@@ -83,11 +77,11 @@ class PluginStatic: public Plugin
 
             if (access(path.c_str(), R_OK) == -1)
             {
-                sdata->s_status = NON_EXIST;
+                data->s_state = NOT_EXIST;
             }
             else
             {
-                sdata->s_status = INIT;
+                data->s_state = INIT;
             }
         }
         
@@ -96,37 +90,37 @@ class PluginStatic: public Plugin
     
     virtual plugin_state_t Write(Connection *con, int index)
     {
+        static_data_t  *data = static_cast<static_data_t*>(con->plugin_data_slots[index]);
         HttpRequest *request = con->http_req_parsed;
-        StaticData  *sdata   = (StaticData*)con->plugin_data_slots[index];
 
-        if (sdata->s_status == INIT)
+        if (data->s_state == INIT)
         {
-            sdata->s_status = READ;
-            sdata->s_fd     = open(request->http_url.substr(1).c_str(), O_RDONLY);
+            data->s_state = READ;
+            data->s_fd     = open(request->http_url.substr(1).c_str(), O_RDONLY);
             return PLUGIN_NOT_READY;
         }
-        else if (sdata->s_status == NON_ACCESS)
+        else if (data->s_state == NOT_ACCESS)
         {
             con->http_response.http_code    = 404;
             con->http_response.http_phrase 	= "Access Deny";
         }
-        else if (sdata->s_status == NON_EXIST)
+        else if (data->s_state == NOT_EXIST)
         {
             con->http_response.http_code    = 403;
             con->http_response.http_phrase 	= "File don't exist";
         }
         else
         {
-            int ret = read(sdata->s_fd, &sdata->s_buf[0], sdata->s_buf.capacity());
+            int ret = read(data->s_fd, &data->s_buf[0], data->s_buf.capacity());
 
             if (ret <= 0)
             {
-                sdata->s_status = OVER;
-                con->http_response.http_body += sdata->s_all;
+                data->s_state = DONE;
+                con->http_response.http_body += data->s_data;
             }
             else
             {
-                sdata->s_all.append(&sdata->s_buf[0], 0, ret);
+                data->s_data.append(&data->s_buf[0], 0, ret);
                 return PLUGIN_NOT_READY;
             }
         }
@@ -136,13 +130,13 @@ class PluginStatic: public Plugin
 
     virtual bool ResponseEnd(Connection *con, int index)
     {
-        StaticData *sdata = (StaticData*)con->plugin_data_slots[index];
+        static_data_t *data = static_cast<static_data_t*>(con->plugin_data_slots[index]);
 
-        if (sdata->s_status == OVER)
+        if (data->s_state == DONE)
         {
-            close(sdata->s_fd);
-            sdata->s_fd = -1;
-            sdata->s_all.clear();
+            close(data->s_fd);
+            data->s_fd = -1;
+            data->s_data.clear();
         }
         
         return true;
@@ -150,14 +144,14 @@ class PluginStatic: public Plugin
 
     virtual void Close(Connection *con, int index)
     {
-        StaticData *sdata = (StaticData*)con->plugin_data_slots[index];
+        static_data_t *data = static_cast<static_data_t*>(con->plugin_data_slots[index]);
 
-        if (sdata->s_fd != -1)
+        if (data->s_fd != -1)
         {
-            close(sdata->s_fd);
+            close(data->s_fd);
         }
 
-        delete sdata;
+        delete data;
     }
 
 };
