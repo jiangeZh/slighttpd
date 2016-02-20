@@ -17,10 +17,9 @@ Listener::Listener(const std::string &ip, unsigned short port)
 	listen_addr.sin_family		= AF_INET;
 	listen_addr.sin_addr.s_addr	= inet_addr(ip.c_str());
 	listen_addr.sin_port		= htons(port);
-	listen_event				= NULL;
-	listen_con_cnt				= 0;
+	listen_event			= NULL;
+	listen_con_cnt			= 0;
 }
-
 
 Listener::~Listener()
 {
@@ -71,7 +70,7 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 {
 	evutil_socket_t con_fd;
 	struct sockaddr_in con_addr;
-	socklen_t addr_len	= sizeof(con_addr);
+	socklen_t addr_len = sizeof(con_addr);
 	if (-1 == (con_fd = accept(sockfd, (struct sockaddr*)&con_addr, &addr_len)))
 	{
 		//std::cout << "Thundering herd" <<std::endl;
@@ -100,5 +99,4 @@ void Listener::ListenEventCallback(evutil_socket_t sockfd, short event, void *ar
 	}
 	con->con_worker->w_con_map[con->con_sockfd] = con;
 	++(listener->listen_con_cnt);
-
 }

@@ -38,12 +38,12 @@ class Worker
 	public:
 
 		typedef std::map<evutil_socket_t, Connection*> ConnectionMap;
-		ConnectionMap		w_con_map;
+		ConnectionMap		 w_con_map;
 
-		struct event_base  *w_base;
+		struct event_base	*w_base;
 
-		Plugin*			   *w_plugins;
-		int				    w_plugin_cnt;
+		Plugin*			*w_plugins;
+		int			 w_plugin_cnt;
 
 	private:
 
@@ -61,14 +61,14 @@ class Worker
 
 	private:
 
-		Master			   *w_master;
-		Listener			w_listener;
-		struct event	   *w_exit_event;
+		Master		*w_master;
+		Listener	 w_listener;
+		struct event	*w_exit_event;
 
 		typedef std::vector<Connection*> con_pool_t;
-		con_pool_t			con_pool;
-		int					con_pool_size;
-		int					con_pool_cur;
+		con_pool_t	 con_pool;
+		int		 con_pool_size;
+		int		 con_pool_cur;
 };
 
 #endif

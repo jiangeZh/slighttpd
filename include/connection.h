@@ -53,61 +53,61 @@ class Connection
 
 		typedef std::queue<HttpRequest*> req_queue_t;
 
-		Worker			   *con_worker;
-		evutil_socket_t		con_sockfd;
-		struct event	   *con_read_event;
-		struct event	   *con_write_event;
-		req_queue_t			req_queue;
-	    HttpRequest		   *http_req_parser;  	//解析时用
-	    HttpRequest		   *http_req_parsed;   //处理请求时用
-	    HttpResponse		http_response;
+		Worker			*con_worker;
+		evutil_socket_t		 con_sockfd;
+		struct event		*con_read_event;
+		struct event		*con_write_event;
+		req_queue_t		 req_queue;
+		HttpRequest		*http_req_parser;  	//解析时用
+		HttpRequest		*http_req_parsed;   //处理请求时用
+		HttpResponse		 http_response;
 
-		void*			   *plugin_data_slots;
-		int					plugin_cnt;
-		int                	plugin_next;
+		void*			*plugin_data_slots;
+		int			 plugin_cnt;
+		int			 plugin_next;
 
 	private:
 
-    	void WantRead();
-    	void NotWantRead();
-    	void WantWrite();
-    	void NotWantWrite();
-    	void SetWriteEvent();
-    	void UnsetWriteEvent();
+		void WantRead();
+		void NotWantRead();
+		void WantWrite();
+		void NotWantWrite();
+		void SetWriteEvent();
+		void UnsetWriteEvent();
 		void ResetConnection();
 		void PrepareResponse();
 		void SetErrorResponse();
 		bool StateMachine();
-    	void SetState(connection_state_t state);
-    	request_state_t GetParsedRequest();
+		void SetState(connection_state_t state);
+		request_state_t GetParsedRequest();
 
 		bool InitPluginDataSlots();
-    	void FreePluginDataSlots();
+		void FreePluginDataSlots();
 
-    	bool PluginRequestStart();
-    	bool PluginRead();
-    	bool PluginRequestEnd();
-    	bool PluginResponseStart();
-    	plugin_state_t PluginWrite();
-    	bool PluginResponseEnd();
+		bool PluginRequestStart();
+		bool PluginRead();
+		bool PluginRequestEnd();
+		bool PluginResponseStart();
+		plugin_state_t PluginWrite();
+		bool PluginResponseEnd();
 
 		static void ConEventCallback(evutil_socket_t fd, short event, void *arg);
 
 	private:
 
-	    bool				con_want_write;
-	    bool				con_want_read;
+		bool				con_want_write;
+		bool				con_want_read;
 		bool				con_keep_alive;
 		int 				con_req_cnt;
 
-	    HttpParser			http_parser;
+		HttpParser			http_parser;
 
 		std::string			con_inbuf;
 		std::string			con_intmp;
 		std::string			con_outbuf;
 
-		connection_state_t	con_state;
-		request_state_t		req_state;
+		connection_state_t		con_state;
+		request_state_t			req_state;
 };
 
 #endif

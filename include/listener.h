@@ -31,15 +31,11 @@ class Listener
 
 	public:
 
-		Worker			   *listen_worker;
-		evutil_socket_t		listen_sockfd;
-		struct sockaddr_in	listen_addr;
-		struct event	   *listen_event;
-		int					listen_con_cnt;
-
-
+		Worker			*listen_worker;
+		evutil_socket_t		 listen_sockfd;
+		struct sockaddr_in	 listen_addr;
+		struct event		*listen_event;
+		int			 listen_con_cnt;
 };
 
-
 #endif
-

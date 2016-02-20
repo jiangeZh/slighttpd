@@ -17,16 +17,16 @@ std::string HttpResponse::GetResponse()
 {
     std::ostringstream ostream;
     ostream << "HTTP/1.1" << " " << http_code << " " << http_phrase << "\r\n" 
-            << "Connection: keep-alive"                  << "\r\n";
+            << "Connection: keep-alive" << "\r\n";
 
     header_iter_t iter = http_headers.begin();
 
     while (iter != http_headers.end())
     {
-        ostream << iter->first << ": " << iter->second   << "\r\n";
+        ostream << iter->first << ": " << iter->second << "\r\n";
         ++ iter;
     }
-    ostream << "Content-Length: " << http_body.size()       << "\r\n\r\n";
+    ostream << "Content-Length: " << http_body.size() << "\r\n\r\n";
     ostream << http_body;
 
     return ostream.str();
@@ -34,7 +34,7 @@ std::string HttpResponse::GetResponse()
 
 void HttpResponse::ResetResponse()
 {
-	//http_version = "HTTP/1.1";
+    //http_version = "HTTP/1.1";
     http_code = 200;
     http_phrase = "OK";
 
@@ -53,7 +53,7 @@ void HttpParser::InitParser(Connection *con)
     settings.on_body             = OnBodyCallback;
     settings.on_message_complete = OnMessageCompleteCallback;
 
-	http_parser_init(&parser, HTTP_REQUEST);
+    http_parser_init(&parser, HTTP_REQUEST);
     
     parser.data = con;
 }
@@ -99,7 +99,7 @@ int HttpParser::OnHeaderFieldCallback(http_parser *parser, const char *at, size_
 
 int HttpParser::OnHeaderValueCallback(http_parser *parser, const char *at, size_t length)
 {
-    Connection      *con  = static_cast<Connection*>(parser->data);
+    Connection	*con  = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
     
     request->http_headers[request->http_header_field] = std::string(at, length);
@@ -109,9 +109,9 @@ int HttpParser::OnHeaderValueCallback(http_parser *parser, const char *at, size_
 
 int HttpParser::OnHeadersCompleteCallback(http_parser *parser)
 {
-	Connection      *con  = static_cast<Connection*>(parser->data);
+    Connection	*con = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
-	request->http_method    = http_method_str((http_method)parser->method);
+    request->http_method = http_method_str((http_method)parser->method);
     return 0;
 }
 
@@ -127,7 +127,7 @@ int HttpParser::OnBodyCallback(http_parser *parser, const char *at, size_t lengt
 
 int HttpParser::OnMessageCompleteCallback(http_parser *parser)
 {
-    Connection      *con  = static_cast<Connection*>(parser->data);
+    Connection	*con  = static_cast<Connection*>(parser->data);
     HttpRequest *request = con->http_req_parser;
     
     con->req_queue.push(request);

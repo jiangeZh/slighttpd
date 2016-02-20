@@ -11,7 +11,7 @@
 
 Plugin::Plugin()
 {
-	plugin_data		= NULL;
+	plugin_data	= NULL;
 	plugin_is_loaded= false;
 	setup_plugin	= NULL;
 	remove_plugin	= NULL;

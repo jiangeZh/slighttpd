@@ -17,11 +17,11 @@
 Worker::Worker(const std::string &ip, unsigned short port)
 		:w_listener(ip, port)
 {
-	w_master 		= NULL;
-	w_base 			= NULL;
+	w_master	= NULL;
+	w_base		= NULL;
 	w_exit_event	= NULL;
-	w_plugins	  	= NULL;
-	w_plugin_cnt  	= 0;
+	w_plugins	= NULL;
+	w_plugin_cnt	= 0;
 }
 
 Worker::~Worker()
@@ -253,7 +253,6 @@ Connection* Worker::NewCon()
 		{
 			return NULL;
 		}
-
 	}
 	return con;
 }

@@ -20,28 +20,28 @@ typedef header_t::iterator header_iter_t;
 
 struct HttpRequest
 {
-    std::string http_method;
-    std::string http_url;       
+	std::string	http_method;
+	std::string	http_url;       
 	//std::string http_version;
     
-    header_t	http_headers;
-    std::string http_header_field; //field is waiting for value while parsing
+	header_t	http_headers;
+	std::string	http_header_field; //field is waiting for value while parsing
     
-    std::string http_body;
+	std::string	http_body;
 };
 
 struct HttpResponse
 {
 	//std::string http_version;
-    int         http_code;
-    std::string http_phrase;
+	int        	http_code;
+	std::string	http_phrase;
 
-	header_t    http_headers;
+	header_t	http_headers;
 
-    std::string http_body;
+	std::string	http_body;
 
-    std::string GetResponse();
-    void        ResetResponse();
+	std::string	GetResponse();
+	void		ResetResponse();
 };
 
 class HttpParser
@@ -63,8 +63,8 @@ class HttpParser
 
     private:
 
-        http_parser          parser;
-        http_parser_settings settings;
+        http_parser		parser;
+        http_parser_settings	settings;
 };
 
 #endif

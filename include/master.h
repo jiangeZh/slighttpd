@@ -31,13 +31,13 @@ class Master
 
 	private:
 
-		Worker			    m_worker;
+		Worker			 m_worker;
 
-		struct event_base  *m_base;
-		struct event	   *m_exit_event;
-		struct event	   *m_chld_event;
+		struct event_base	*m_base;
+		struct event		*m_exit_event;
+		struct event		*m_chld_event;
 
-		int					nums_of_child;
+		int			 nums_of_child;
 };
 
 #endif
