@@ -8,15 +8,12 @@
 #include "listener.h"
 #include "worker.h"
 #include "connection.h"
+#include "master.h"
 
 #include<iostream>
 
-Listener::Listener(const std::string &ip, unsigned short port)
+Listener::Listener()
 {
-	//ipv4
-	listen_addr.sin_family		= AF_INET;
-	listen_addr.sin_addr.s_addr	= inet_addr(ip.c_str());
-	listen_addr.sin_port		= htons(port);
 	listen_event			= NULL;
 	listen_con_cnt			= 0;
 }
@@ -32,6 +29,10 @@ Listener::~Listener()
 
 bool Listener::InitListener(Worker *worker)
 {
+	//ipv4
+	listen_addr.sin_family		= AF_INET;
+	listen_addr.sin_addr.s_addr	= inet_addr(worker->w_master->conf_para.ListenIP.c_str());
+	listen_addr.sin_port		= htons(worker->w_master->conf_para.ListenPort);
 	if (-1 == (listen_sockfd = socket(AF_INET, SOCK_STREAM, 0)))
 	{
 		std::cerr<< "Listener::InitListener(): socket()" << std::endl;

@@ -11,9 +11,8 @@
 
 int main(int argc, char * argv[])
 {
-	Master master("0.0.0.0", 8000);
-	std::cout << "----Slighttpd	0.0.0.0	8000----" << std::endl;
-	if (!master.StartMaster())
+	Master master;
+	if (!master.StartMaster(argc,argv))
 		return -1;
 	return 0;
 }

@@ -35,6 +35,66 @@ http解析使用第三方库：http-parser。
 
 - 插件（Plugin）类的公共接口函数为虚函数，由插件开发者继承，通过多态性，状态机只需要调用基类的接口函数，不用关心插件的具体实现。
 
+- 支持简单的用户配置。
+
+**配置**：
+
+@2016.2.22：昨天添加了配置模块，已经可以使用啦～
+
+配置方式：支持默认配置、命令行配置、文件配置三种配置方式。
+
+优先级：默认配置 < 命令行配置 < 文件配置。
+
+查看命令行配置帮助以及默认配置：
+
+```
+$ ./slighttpd -h
+./slighttpd [option]...
+  -l|--ListenPort<number>	Default: 8000
+  -m|--MaxWorker<number>	Default: 4
+  -i|--InitConPool<number> 	Default: 200
+  -a|--ListenIP<address>	Default: 0.0.0.0
+  -o|--DocumentRoot<path> 	Default: ./htdocs/
+  -c|--CGIRoot<path> 		Default: ./cgi/
+  -d|--DefaultFile<filename> 	Default: index.html
+  -t|--TimeOut<seconds>		Default: 3
+  -f|--ConfigFile<filename> 	Default: ./slighttpd.conf
+```
+
+目前 -o -c -d 三个配置暂未支持，其他项可进行配置。
+
+配置文件默认在项目根目录下，约定如下：
+
+1.以"#"开头的为注释行
+
+2.等号左右至少留一个空格(支持多个空格)
+
+3.行末不能有空格（否则将被视为值的一部分）
+
+配置样例：
+
+```
+#CGI根路径
+CGIRoot = ./cgi/
+#默认文件名称
+DefaultFile = index.html
+#根文件路径
+DocumentRoot = ./htdocs/
+#绑定地址
+ListenIP = 0.0.0.0
+#侦听端口
+ListenPort = 8000
+#最大worker数量
+MaxWorker = 4
+#超时时间
+TimeOut = 3
+#初始化连接池大小
+InitConPool = 200
+#插件列表
+Plugin = plugin/plugin_static/plugin_static.so
+Plugin = plugin/plugin_cgi/plugin_cgi.so
+```
+
 **使用（需安装libevent）**：
 
 ```
@@ -45,7 +105,7 @@ $ make
 $ cd ../plugin_cgi
 $ make
 $ cd ../..
-$ ./master
+$ ./slighttpd
 ```
 
 浏览器打开：

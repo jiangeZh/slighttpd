@@ -9,6 +9,7 @@
 #define _MASTER_H
 
 #include "worker.h"
+#include "config.h"
 
 #include <string>
 
@@ -19,10 +20,12 @@ class Master
 {
 	public:
 
-		Master(const std::string &ip, unsigned short port);
+		Master();
 		~Master();
 		
-		bool StartMaster();
+		bool StartMaster(int argc, char *argv[]);
+
+		Config			conf_para;
 
 	private:
 

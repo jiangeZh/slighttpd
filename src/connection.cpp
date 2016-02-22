@@ -240,12 +240,12 @@ bool Connection::StateMachine()
 			case CON_STATE_WRITE:
 				plugin_state = PluginWrite();
                 
-				if (plugin_state == PLUGIN_ERROR) //need to send back 500(Server Internal Error)
+				if (plugin_state == PLUGIN_ERROR)
 				{
 					SetState(CON_STATE_ERROR);
 					continue;
 				}
-				else if (plugin_state == PLUGIN_NOT_READY) //Plugin isn't ready, we continue with other connection
+				else if (plugin_state == PLUGIN_NOT_READY) //插件没准备好，先处理其他con
 				{                
 					return true;
 				}
@@ -272,7 +272,7 @@ bool Connection::StateMachine()
 				http_response.ResetResponse();
 				SetErrorResponse();
 				con_outbuf += http_response.GetResponse();
-				if (con_outbuf.empty())	//错误信息写出去之后才关闭连接
+				if (con_outbuf.empty())
 				{
 					return false;
 				}

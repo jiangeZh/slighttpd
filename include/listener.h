@@ -21,7 +21,7 @@ class Listener
 {
 	public:
 
-		Listener(const std::string &ip, unsigned short port);
+		Listener();
 		~Listener();
 
 		bool InitListener(Worker *worker);

@@ -27,7 +27,7 @@ class Worker
 {
 	public:
 
-		Worker(const std::string &ip, unsigned short port);
+		Worker();
 		~Worker();
 
 		bool Init(Master *master);
@@ -39,7 +39,7 @@ class Worker
 
 		typedef std::map<evutil_socket_t, Connection*> ConnectionMap;
 		ConnectionMap		 w_con_map;
-
+		Master			*w_master;
 		struct event_base	*w_base;
 
 		Plugin*			*w_plugins;
@@ -61,7 +61,6 @@ class Worker
 
 	private:
 
-		Master		*w_master;
 		Listener	 w_listener;
 		struct event	*w_exit_event;
 

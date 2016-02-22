@@ -14,8 +14,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
-Worker::Worker(const std::string &ip, unsigned short port)
-		:w_listener(ip, port)
+Worker::Worker()
 {
 	w_master	= NULL;
 	w_base		= NULL;
@@ -86,13 +85,13 @@ void Worker::WorkerExitSignal(evutil_socket_t signo, short event, void *arg)
 
 bool Worker::SetupPlugins()
 {
-	const char *path;
+	std::string path;
 
-	for (int i = 0; plugin_list[i]; ++i)
+	for (int i = 0; i < w_master->conf_para.PluginList.size(); ++i)
 	{
-		path = plugin_list[i];
+		path = w_master->conf_para.PluginList[i];
 		
-		void *so = dlopen(path, RTLD_LAZY);
+		void *so = dlopen(path.c_str(), RTLD_LAZY);
 		if (!so)
 		{
 			std::cerr << dlerror() << std::endl;
@@ -180,7 +179,7 @@ void Worker::UnloadPlugins()
 
 void Worker::InitConPool()
 {
-	con_pool_size	= 200;
+	con_pool_size	= w_master->conf_para.InitConPool;
 	con_pool_cur	= 0;
 	con_pool.resize(con_pool_size);
 }

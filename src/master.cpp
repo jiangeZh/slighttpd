@@ -13,13 +13,12 @@
 
 #include <iostream>
 
-Master::Master(const std::string &ip, unsigned short port)
-	:m_worker(ip, port)
+Master::Master()
 {
-	m_base		= NULL;
-	m_exit_event	= NULL;
-	m_chld_event	= NULL;
-	nums_of_child	= 4;
+	m_base			= NULL;
+	m_exit_event		= NULL;
+	m_chld_event		= NULL;
+	nums_of_child		= 0;
 }
 
 Master::~Master()
@@ -33,9 +32,11 @@ Master::~Master()
 	}
 }
 
-
-bool Master::StartMaster()
+bool Master::StartMaster(int argc, char *argv[])
 {
+	if (0 != conf_para.InitPara(argc, argv))
+		return false;
+
 	std::cout << "Start Master" << std::endl;
 
 	if (!m_worker.Init(this))
@@ -43,6 +44,8 @@ bool Master::StartMaster()
 		std::cerr<< "Master: Worker::Init()" << std::endl;
 		return false;
 	}
+
+	nums_of_child = conf_para.MaxWorker;
 
 	//创建一定数量的worker
 	while (nums_of_child > 0)

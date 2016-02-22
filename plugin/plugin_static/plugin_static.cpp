@@ -97,35 +97,33 @@ class PluginStatic: public Plugin
         {
             data->s_state = READ;
             data->s_fd     = open(request->http_url.substr(1).c_str(), O_RDONLY);
-            return PLUGIN_NOT_READY;
         }
         else if (data->s_state == NOT_ACCESS)
         {
             con->http_response.http_code    = 404;
             con->http_response.http_phrase 	= "Access Deny";
+            return PLUGIN_READY;
         }
         else if (data->s_state == NOT_EXIST)
         {
             con->http_response.http_code    = 403;
             con->http_response.http_phrase 	= "File don't exist";
+            return PLUGIN_READY;
+        }
+
+        int ret = read(data->s_fd, &data->s_buf[0], data->s_buf.capacity());
+
+        if (ret <= 0)
+        {
+            data->s_state = DONE;
+            con->http_response.http_body += data->s_data;
+            return PLUGIN_READY;
         }
         else
         {
-            int ret = read(data->s_fd, &data->s_buf[0], data->s_buf.capacity());
-
-            if (ret <= 0)
-            {
-                data->s_state = DONE;
-                con->http_response.http_body += data->s_data;
-            }
-            else
-            {
-                data->s_data.append(&data->s_buf[0], 0, ret);
-                return PLUGIN_NOT_READY;
-            }
+            data->s_data.append(&data->s_buf[0], 0, ret);
+            return PLUGIN_NOT_READY;
         }
-
-        return PLUGIN_READY;
     }
 
     virtual bool ResponseEnd(Connection *con, int index)
